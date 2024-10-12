@@ -266,8 +266,26 @@ def tensor_map(
         in_shape: Shape,
         in_strides: Strides,
     ) -> None:
-        # TODO: Implement for Task 2.3.
-        raise NotImplementedError("Need to implement for Task 2.3")
+        total_elements = 1
+        for dim in out_shape:
+            total_elements *= dim
+
+        for idx in range(total_elements):
+            out_index = [0] * len(out_shape)
+            temp_idx = idx
+            for i in reversed(range(len(out_shape))):
+                out_index[i] = temp_idx % out_shape[i]
+                temp_idx //= out_shape[i]
+            in_index = [0] * len(in_shape)
+            for i in range(len(in_shape)):
+                if in_shape[i] == 1:
+                    in_index[i] = 0
+                else:
+                    in_index[i] = out_index[i]
+            out_pos = sum(out_index[i] * out_strides[i] for i in range(len(out_shape)))
+            in_pos = sum(in_index[i] * in_strides[i] for i in range(len(in_shape)))
+
+            out[out_pos] = fn(in_storage[in_pos])
 
     return _map
 
@@ -313,8 +331,39 @@ def tensor_zip(
         b_shape: Shape,
         b_strides: Strides,
     ) -> None:
-        # TODO: Implement for Task 2.3.
-        raise NotImplementedError("Need to implement for Task 2.3")
+        total_elements = 1
+        for dim in out_shape:
+            total_elements *= dim
+
+        # Iterate over all elements in out_storage
+        for idx in range(total_elements):
+            out_index = [0] * len(out_shape)
+            temp_idx = idx
+            for i in reversed(range(len(out_shape))):
+                out_index[i] = temp_idx % out_shape[i]
+                temp_idx //= out_shape[i]
+
+            a_index = [0] * len(a_shape)
+            b_index = [0] * len(b_shape)
+
+            for i in range(len(a_shape)):
+                if a_shape[i] == 1:
+                    a_index[i] = 0
+                else:
+                    a_index[i] = out_index[i]
+
+            for i in range(len(b_shape)):
+                if b_shape[i] == 1:
+                    b_index[i] = 0
+                else:
+                    b_index[i] = out_index[i]
+
+            out_pos = sum(out_index[i] * out_strides[i] for i in range(len(out_shape)))
+            a_pos = sum(a_index[i] * a_strides[i] for i in range(len(a_shape)))
+            b_pos = sum(b_index[i] * b_strides[i] for i in range(len(b_shape)))
+
+            # Apply the binary function and store the result
+            out[out_pos] = fn(a_storage[a_pos], b_storage[b_pos])
 
     return _zip
 
@@ -346,8 +395,27 @@ def tensor_reduce(
         a_strides: Strides,
         reduce_dim: int,
     ) -> None:
-        # TODO: Implement for Task 2.3.
-        raise NotImplementedError("Need to implement for Task 2.3")
+        total_elements = 1
+        for dim in out_shape:
+            total_elements *= dim
+
+        for idx in range(total_elements):
+            out_index = [0] * len(out_shape)
+            temp_idx = idx
+            for i in reversed(range(len(out_shape))):
+                out_index[i] = temp_idx % out_shape[i]
+                temp_idx //= out_shape[i]
+
+            out_pos = sum(out_index[i] * out_strides[i] for i in range(len(out_shape)))
+            for r in range(a_shape[reduce_dim]):
+                a_index = out_index[:]
+                a_index[reduce_dim] = r
+                a_pos = sum(a_index[i] * a_strides[i] for i in range(len(a_shape)))
+
+                if r == 0:
+                    out[out_pos] = a_storage[a_pos]
+                else:
+                    out[out_pos] = fn(out[out_pos], a_storage[a_pos])
 
     return _reduce
 
