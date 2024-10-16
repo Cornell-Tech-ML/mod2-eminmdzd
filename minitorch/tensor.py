@@ -355,12 +355,18 @@ class Tensor:
 
         Returns:
         -------
-            Tensor: A tensor containing the result.
+            Tensor: A tensor containing a single True/False value (a scalar).
 
         """
         if dim is not None:
-            return All.apply(self, Tensor.make([dim], (1,), backend=self.backend))
-        return All.apply(self, Tensor.make([0], (1,), backend=self.backend))
+            # Reduce along the specified dimension
+            result = All.apply(self, Tensor.make([dim], (1,), backend=self.backend))
+        else:
+            # Reduce across all dimensions
+            result = All.apply(self, Tensor.make([-1], (1,), backend=self.backend))
+
+        # Ensure that the result is a single value (1 if all True, 0 if any False)
+        return result.f.mul_reduce(result, 0).view(())
 
     def is_close(self, other: Tensor) -> Tensor:
         """Check if elements of this tensor are close to those of another tensor.
@@ -431,7 +437,7 @@ class Tensor:
         """
         if dim is None:
             # Sum across all dimensions, so pass None as a Tensor
-            return Sum.apply(self, Tensor.make([0], (1,), backend=self.backend))
+            return Sum.apply(self, Tensor.make([-1], (1,), backend=self.backend))
         else:
             # Pass the dimension as a Tensor
             return Sum.apply(self, Tensor.make([dim], (1,), backend=self.backend))

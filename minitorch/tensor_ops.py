@@ -374,20 +374,7 @@ def tensor_zip(
 def tensor_reduce(
     fn: Callable[[float, float], float],
 ) -> Callable[[Storage, Shape, Strides, Storage, Shape, Strides, int], None]:
-    """Low-level implementation of tensor reduce.
-
-    * `out_shape` will be the same as `a_shape`
-       except with `reduce_dim` turned to size `1`
-
-    Args:
-    ----
-        fn: reduction function mapping two floats to float
-
-    Returns:
-    -------
-        Tensor reduce function.
-
-    """
+    """Low-level implementation of tensor reduce."""
 
     def _reduce(
         out: Storage,

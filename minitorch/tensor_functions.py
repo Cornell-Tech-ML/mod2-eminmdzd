@@ -276,24 +276,25 @@ class View(Function):
 
 class Sum(Function):
     @staticmethod
-    def forward(ctx: Context, t1: Tensor, dim: Optional[Tensor] = None) -> Tensor:
+    def forward(ctx: Context, t1: Tensor, dim: Tensor) -> Tensor:
         """Sum function for tensors with optional dimension argument."""
         # Save the shape and dimension for the backward pass
         ctx.save_for_backward(t1.shape, dim)
 
-        if dim is None or dim.item() == 0:
+        if dim.item() == -1:
             # Sum over all elements (reduce all dimensions)
             total_elements = int(operators.prod(t1.shape))
             total = t1.f.add_reduce(t1.contiguous().view((total_elements,)), 0)
             return total.view((1,))  # Return a scalar wrapped in a 1D tensor
         else:
-            # Extract the dimension from the Tensor object
-            dim_int = int(dim.item())
             # Sum along the specified dimension
+            dim_int = int(dim.item())
             result = t1.f.add_reduce(t1, dim_int)
             result_shape = list(t1.shape)
-            result_shape[dim_int] = 1  # Collapse the dimension that was reduced
-            return result.view(tuple(result_shape))  # Ensure correct shape
+            result_shape[dim_int] = 1
+
+            # Reshape the result to maintain the singleton dimension
+            return result.view(result_shape)
 
 
 class Copy(Function):
