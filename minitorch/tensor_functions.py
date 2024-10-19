@@ -158,7 +158,7 @@ class Permute(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor, order: Tensor) -> Tensor:
         """Permute the dimensions of a tensor according to the order."""
-        order_list = [int(order[i].item()) for i in range(order.size)]
+        order_list = [int(order[i]) for i in range(order.size)]
         ctx.save_for_backward(
             order_list
         )  # Save the permutation order for backward pass
@@ -194,18 +194,10 @@ class View(Function):
 
 class Sum(Function):
     @staticmethod
-    def forward(ctx: Context, a: Tensor, dim: Tensor) -> Tensor:
-        ctx.save_for_backward(a.shape, dim)
-        if dim.item() == -1:
-            total_elements = int(operators.prod(a.shape))
-            total = a.f.add_reduce(a.contiguous().view((total_elements,)), 0)
-            return total.view((1,))  # Return a scalar wrapped in a 1D tensor
-        return a.f.add_reduce(a, int(dim.item()))
-
-    @staticmethod
-    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, float]:
-        a_shape, dim = ctx.saved_values
-        return grad_output, 0.0
+    def forward(ctx: Context, t1: Tensor, dim: Tensor) -> Tensor:
+        dim_int = int(dim.item())
+        ctx.save_for_backward(dim_int, t1.shape)
+        return t1.f.add_reduce(t1, dim_int)
 
 
 class Copy(Function):

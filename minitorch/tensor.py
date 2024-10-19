@@ -30,6 +30,7 @@ from .tensor_functions import (
     Sigmoid,
     Sum,
     View,
+    tensor,
 )
 
 if TYPE_CHECKING:
@@ -284,205 +285,151 @@ class Tensor:
 
     @property
     def size(self) -> int:
-        """Return the total number of elements in the tensor.
-
-        Returns
-        -------
-            int: The total number of elements.
-
-        """
-        return int(operators.prod(self.shape))
+        """Returns the total number of elements in the tensor."""
+        return self._tensor.size
 
     @property
     def dims(self) -> int:
-        """Return the number of dimensions of the tensor.
-
-        Returns
-        -------
-            int: The number of dimensions.
-
-        """
+        """Returns the number of dimensions of the tensor."""
         return len(self.shape)
 
     def __add__(self, other: TensorLike) -> Tensor:
-        """Perform element-wise addition."""
-        other = self._ensure_tensor(other)
-        return Add.apply(self, other)
+        """Element-wise addition with broadcasting support."""
+        other_tensor = self._ensure_tensor(other)
+        return Add.apply(self, other_tensor)
 
     def __sub__(self, other: TensorLike) -> Tensor:
-        """Perform element-wise subtraction."""
-        other = self._ensure_tensor(other)
-        return Add.apply(self, Neg.apply(other))
+        """Element-wise subtraction with broadcasting support."""
+        other_tensor = self._ensure_tensor(other)
+        return Add.apply(self, Neg.apply(other_tensor))
 
     def __mul__(self, other: TensorLike) -> Tensor:
-        """Perform element-wise multiplication."""
-        other = self._ensure_tensor(other)
-        return Mul.apply(self, other)
+        """Element-wise multiplication with broadcasting support."""
+        other_tensor = self._ensure_tensor(other)
+        return Mul.apply(self, other_tensor)
 
     def __lt__(self, other: TensorLike) -> Tensor:
-        """Perform element-wise less than comparison."""
-        other = self._ensure_tensor(other)
-        return LT.apply(self, other)
+        """Element-wise less-than comparison."""
+        other_tensor = self._ensure_tensor(other)
+        return LT.apply(self, other_tensor)
 
     def __eq__(self, other: TensorLike) -> Tensor:
-        """Perform element-wise equality comparison."""
-        other = self._ensure_tensor(other)
-        return EQ.apply(self, other)
+        """Element-wise equality comparison."""
+        other_tensor = self._ensure_tensor(other)
+        return EQ.apply(self, other_tensor)
 
     def __gt__(self, other: TensorLike) -> Tensor:
-        """Perform element-wise greater than comparison."""
-        other = self._ensure_tensor(other)
-        return LT.apply(other, self)
+        """Element-wise greater-than comparison."""
+        other_tensor = self._ensure_tensor(other)
+        return LT.apply(other_tensor, self)
 
     def __neg__(self) -> Tensor:
-        """Perform element-wise negation."""
+        """Element-wise negation."""
         return Neg.apply(self)
 
     def __radd__(self, other: TensorLike) -> Tensor:
-        """Perform reverse element-wise addition."""
-        return self + other
+        """Right-hand side addition to support scalar + tensor."""
+        return self.__add__(other)
 
     def __rmul__(self, other: TensorLike) -> Tensor:
-        """Perform reverse element-wise multiplication."""
-        return self * other
+        """Right-hand side multiplication to support scalar * tensor."""
+        return self.__mul__(other)
 
-    def all(self, dim: Optional[int] = -1) -> Tensor:
-        """Check if all elements are true, optionally along a dimension.
-
-        Args:
-        ----
-            dim (Optional[int], optional): Dimension along which to check. Defaults to -1.
-
-        Returns:
-        -------
-            Tensor: A tensor containing a single True/False value (a scalar).
-
-        """
-        result = All.apply(self, Tensor.make([dim], (1,), backend=self.backend))
-        # Ensure that the result is a single value (1 if all True, 0 if any False)
-        return result.f.mul_reduce(result, 0).view(())
-
-    def is_close(self, other: Tensor) -> Tensor:
-        """Check if elements of this tensor are close to those of another tensor.
-
-        Args:
-        ----
-            other (Tensor): The tensor to compare to.
-
-        Returns:
-        -------
-            Tensor: A tensor of boolean values indicating closeness.
-
-        """
-        other = self._ensure_tensor(other)
-        return IsClose.apply(self, other)
+    def is_close(self, other: TensorLike) -> Tensor:
+        """Element-wise closeness comparison within a tolerance."""
+        other_tensor = self._ensure_tensor(other)
+        return IsClose.apply(self, other_tensor)
 
     def sigmoid(self) -> Tensor:
-        """Apply the sigmoid function element-wise.
-
-        Returns
-        -------
-            Tensor: The result of applying the sigmoid function.
-
-        """
+        """Applies the sigmoid function element-wise."""
         return Sigmoid.apply(self)
 
     def relu(self) -> Tensor:
-        """Apply the ReLU function element-wise.
-
-        Returns
-        -------
-            Tensor: The result of applying the ReLU function.
-
-        """
+        """Applies the ReLU function element-wise."""
         return ReLU.apply(self)
 
     def log(self) -> Tensor:
-        """Apply the logarithm function element-wise.
-
-        Returns
-        -------
-            Tensor: The result of applying the logarithm function.
-
-        """
+        """Computes the natural logarithm element-wise."""
         return Log.apply(self)
 
     def exp(self) -> Tensor:
-        """Apply the exponential function element-wise.
-
-        Returns
-        -------
-            Tensor: The result of applying the exponential function.
-
-        """
+        """Computes the exponential function element-wise."""
         return Exp.apply(self)
 
     def sum(self, dim: Optional[int] = None) -> Tensor:
-        """Compute the sum of elements, optionally along a dimension.
+        """Computes the sum over the specified dimension.
 
         Args:
-        ----
-            dim (Optional[int], optional): The dimension along which to sum. Defaults to None.
+            dim (int, optional): Dimension to reduce. If None, sums over all elements.
 
         Returns:
-        -------
-            Tensor: The result of the summation.
-
+            Tensor: Summed tensor.
         """
         if dim is None:
-            # Sum across all dimensions, so pass -1
-            return Sum.apply(self, Tensor.make([-1], (1,), backend=self.backend))
+            # Sum over all elements
+            flattened = self.contiguous().view(int(operators.prod(self.shape)))
+            return Sum.apply(flattened, tensor([0]))
         else:
-            # Pass the dimension as a Tensor
-            return Sum.apply(self, Tensor.make([dim], (1,), backend=self.backend))
+            # Sum over the specified dimension
+            return Sum.apply(self, tensor([dim]))
 
     def mean(self, dim: Optional[int] = None) -> Tensor:
-        """Compute the mean of elements, optionally along a dimension.
+        """Computes the mean over the specified dimension.
 
         Args:
-        ----
-            dim (Optional[int], optional): The dimension along which to compute the mean. Defaults to None.
+            dim (int, optional): Dimension to reduce. If None, computes mean over all elements.
 
         Returns:
-        -------
-            Tensor: The result of the mean computation.
-
+            Tensor: Tensor with mean values.
         """
-        summed = self.sum(dim)
+        total = self.sum(dim=dim)
         if dim is None:
-            return summed / self.size
-        return summed / self.shape[dim]
+            count = operators.prod(self.shape)
+        else:
+            count = self.shape[dim]
+        return total / count
 
-    def permute(self, order: Sequence[int]) -> Tensor:
-        """Permute the dimensions of the tensor according to the given order.
+    def permute(self, *order: int) -> Tensor:
+        """Permutes the dimensions of the tensor according to the specified order.
 
         Args:
-        ----
-            order (Sequence[int]): The desired ordering of dimensions.
+            *order (int): The desired ordering of dimensions.
 
         Returns:
-        -------
-            Tensor: The permuted tensor.
-
+            Tensor: Permuted tensor.
         """
-        order_tensor = Tensor.make(order, (len(order),), backend=self.backend)
+        order_tensor = tensor(list(order))
         return Permute.apply(self, order_tensor)
 
-    def view(self, shape: Sequence[int]) -> Tensor:
-        """Reshape the tensor to the specified shape.
+    def view(self, *shape: int) -> Tensor:
+        """Reshapes the tensor to the specified shape.
 
         Args:
-        ----
-            shape (Sequence[int]): The desired shape.
+            *shape (int): The desired shape.
 
         Returns:
-        -------
-            Tensor: The reshaped tensor.
-
+            Tensor: Reshaped tensor.
         """
-        shape_tensor = Tensor.make(shape, (len(shape),), backend=self.backend)
+        shape_tensor = tensor(list(shape))
         return View.apply(self, shape_tensor)
 
+    def all(self, dim: Optional[int] = None) -> Tensor:
+        """Checks if all elements are true (non-zero) over the specified dimension.
+
+        Args:
+            dim (int, optional): Dimension to reduce. If None, checks all elements.
+
+        Returns:
+            Tensor: Tensor with boolean values indicating if all elements are true.
+        """
+        if dim is None:
+            # Reduce over all elements
+            flattened = self.contiguous().view(int(operators.prod(self.shape)))
+            return All.apply(flattened, tensor([0]))
+        else:
+            # Reduce over the specified dimension
+            return All.apply(self, tensor([dim]))
+
     def zero_grad_(self) -> None:
-        """Reset the gradient of this tensor to None."""
+        """Sets the gradient of the tensor to None."""
         self.grad = None
