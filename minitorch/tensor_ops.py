@@ -3,11 +3,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Callable, Optional, Type
 
 from typing_extensions import Protocol
+import numpy as np
 
 from . import operators
-from .tensor_data import (
-    shape_broadcast,
-)
+from .tensor_data import shape_broadcast, to_index, broadcast_index, index_to_position
 
 if TYPE_CHECKING:
     from .tensor import Tensor
@@ -269,25 +268,16 @@ def tensor_map(
         in_shape: Shape,
         in_strides: Strides,
     ) -> None:
-        total_elements = 1
-        for dim in out_shape:
-            total_elements *= dim
+        out_index = np.zeros(len(out_shape), dtype=np.int32)
+        in_index = np.zeros(len(in_shape), dtype=np.int32)
 
-        for idx in range(total_elements):
-            out_index = [0] * len(out_shape)
-            temp_idx = idx
-            for i in reversed(range(len(out_shape))):
-                out_index[i] = temp_idx % out_shape[i]
-                temp_idx //= out_shape[i]
-            in_index = [0] * len(in_shape)
-            for i in range(len(in_shape)):
-                if in_shape[i] == 1:
-                    in_index[i] = 0
-                else:
-                    in_index[i] = out_index[i]
-            out_pos = sum(out_index[i] * out_strides[i] for i in range(len(out_shape)))
-            in_pos = sum(in_index[i] * in_strides[i] for i in range(len(in_shape)))
+        size = int(np.prod(out_shape))
 
+        for ordinal in range(size):
+            to_index(ordinal, out_shape, out_index)
+            broadcast_index(out_index, out_shape, in_shape, in_index)
+            out_pos = index_to_position(out_index, out_strides)
+            in_pos = index_to_position(in_index, in_strides)
             out[out_pos] = fn(in_storage[in_pos])
 
     return _map
@@ -334,38 +324,19 @@ def tensor_zip(
         b_shape: Shape,
         b_strides: Strides,
     ) -> None:
-        total_elements = 1
-        for dim in out_shape:
-            total_elements *= dim
+        out_index = np.zeros(len(out_shape), dtype=np.int32)
+        a_index = np.zeros(len(a_shape), dtype=np.int32)
+        b_index = np.zeros(len(b_shape), dtype=np.int32)
 
-        # Iterate over all elements in out_storage
-        for idx in range(total_elements):
-            out_index = [0] * len(out_shape)
-            temp_idx = idx
-            for i in reversed(range(len(out_shape))):
-                out_index[i] = temp_idx % out_shape[i]
-                temp_idx //= out_shape[i]
+        size = int(np.prod(out_shape))
 
-            a_index = [0] * len(a_shape)
-            b_index = [0] * len(b_shape)
-
-            for i in range(len(a_shape)):
-                if a_shape[i] == 1:
-                    a_index[i] = 0
-                else:
-                    a_index[i] = out_index[i]
-
-            for i in range(len(b_shape)):
-                if b_shape[i] == 1:
-                    b_index[i] = 0
-                else:
-                    b_index[i] = out_index[i]
-
-            out_pos = sum(out_index[i] * out_strides[i] for i in range(len(out_shape)))
-            a_pos = sum(a_index[i] * a_strides[i] for i in range(len(a_shape)))
-            b_pos = sum(b_index[i] * b_strides[i] for i in range(len(b_shape)))
-
-            # Apply the binary function and store the result
+        for ordinal in range(size):
+            to_index(ordinal, out_shape, out_index)
+            broadcast_index(out_index, out_shape, a_shape, a_index)
+            broadcast_index(out_index, out_shape, b_shape, b_index)
+            out_pos = index_to_position(out_index, out_strides)
+            a_pos = index_to_position(a_index, a_strides)
+            b_pos = index_to_position(b_index, b_strides)
             out[out_pos] = fn(a_storage[a_pos], b_storage[b_pos])
 
     return _zip
@@ -385,27 +356,21 @@ def tensor_reduce(
         a_strides: Strides,
         reduce_dim: int,
     ) -> None:
-        total_elements = 1
-        for dim in out_shape:
-            total_elements *= dim
+        out_index = np.zeros(len(out_shape), dtype=np.int32)
+        a_index = np.zeros(len(a_shape), dtype=np.int32)
 
-        for idx in range(total_elements):
-            out_index = [0] * len(out_shape)
-            temp_idx = idx
-            for i in reversed(range(len(out_shape))):
-                out_index[i] = temp_idx % out_shape[i]
-                temp_idx //= out_shape[i]
+        size = int(np.prod(a_shape))
 
-            out_pos = sum(out_index[i] * out_strides[i] for i in range(len(out_shape)))
-            for r in range(a_shape[reduce_dim]):
-                a_index = out_index[:]
-                a_index[reduce_dim] = r
-                a_pos = sum(a_index[i] * a_strides[i] for i in range(len(a_shape)))
-
-                if r == 0:
-                    out[out_pos] = a_storage[a_pos]
+        for ordinal in range(size):
+            to_index(ordinal, a_shape, a_index)
+            for i in range(len(a_shape)):
+                if i != reduce_dim:
+                    out_index[i] = a_index[i]
                 else:
-                    out[out_pos] = fn(out[out_pos], a_storage[a_pos])
+                    out_index[i] = 0
+            out_pos = index_to_position(out_index, out_strides)
+            a_pos = index_to_position(a_index, a_strides)
+            out[out_pos] = fn(out[out_pos], a_storage[a_pos])
 
     return _reduce
 
