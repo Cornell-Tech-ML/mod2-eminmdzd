@@ -360,10 +360,13 @@ class Tensor:
         """Computes the sum over the specified dimension.
 
         Args:
+        ----
             dim (int, optional): Dimension to reduce. If None, sums over all elements.
 
         Returns:
+        -------
             Tensor: Summed tensor.
+
         """
         if dim is None:
             # Sum over all elements
@@ -377,10 +380,13 @@ class Tensor:
         """Computes the mean over the specified dimension.
 
         Args:
+        ----
             dim (int, optional): Dimension to reduce. If None, computes mean over all elements.
 
         Returns:
+        -------
             Tensor: Tensor with mean values.
+
         """
         total = self.sum(dim=dim)
         if dim is None:
@@ -393,10 +399,13 @@ class Tensor:
         """Permutes the dimensions of the tensor according to the specified order.
 
         Args:
+        ----
             *order (int): The desired ordering of dimensions.
 
         Returns:
+        -------
             Tensor: Permuted tensor.
+
         """
         order_tensor = tensor(list(order))
         return Permute.apply(self, order_tensor)
@@ -405,10 +414,13 @@ class Tensor:
         """Reshapes the tensor to the specified shape.
 
         Args:
+        ----
             *shape (int): The desired shape.
 
         Returns:
+        -------
             Tensor: Reshaped tensor.
+
         """
         shape_tensor = tensor(list(shape))
         return View.apply(self, shape_tensor)
@@ -417,10 +429,13 @@ class Tensor:
         """Checks if all elements are true (non-zero) over the specified dimension.
 
         Args:
+        ----
             dim (int, optional): Dimension to reduce. If None, checks all elements.
 
         Returns:
+        -------
             Tensor: Tensor with boolean values indicating if all elements are true.
+
         """
         if dim is None:
             # Reduce over all elements

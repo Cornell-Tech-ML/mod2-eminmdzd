@@ -105,7 +105,7 @@ class All(Function):
             return a.f.mul_reduce(a, int(dim.item()))
         else:
             return a.f.mul_reduce(a.contiguous().view(int(operators.prod(a.shape))), 0)
-        
+
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, None]:
         # The derivative of All w.r.t. inputs is zero almost everywhere
@@ -119,7 +119,7 @@ class Mul(Function):
     def forward(ctx: Context, t1: Tensor, t2: Tensor) -> Tensor:
         ctx.save_for_backward(t1, t2)
         return t1.f.mul_zip(t1, t2)
-    
+
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
         t1, t2 = ctx.saved_values
@@ -135,7 +135,7 @@ class Sigmoid(Function):
         out = t1.f.sigmoid_map(t1)
         ctx.save_for_backward(out)
         return out
-    
+
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
         (result,) = ctx.saved_values
@@ -148,7 +148,7 @@ class ReLU(Function):
     def forward(ctx: Context, t1: Tensor) -> Tensor:
         ctx.save_for_backward(t1)
         return t1.f.relu_map(t1)
-    
+
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
         (t1,) = ctx.saved_values
@@ -160,7 +160,7 @@ class Log(Function):
     def forward(ctx: Context, t1: Tensor) -> Tensor:
         ctx.save_for_backward(t1)
         return t1.f.log_map(t1)
-    
+
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
         (t1,) = ctx.saved_values
@@ -174,7 +174,7 @@ class Exp(Function):
         out = t1.f.exp_map(t1)
         ctx.save_for_backward(out)
         return out
-    
+
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
         (result,) = ctx.saved_values
@@ -198,7 +198,7 @@ class Sum(Function):
         grad_output_reshaped = grad_output.view(*grad_shape)
         # Expand grad_output to match the input shape
         grad_input = grad_output_reshaped + 0  # Adding zero triggers broadcasting
-        return grad_input, None   
+        return grad_input, None
 
 
 
@@ -247,7 +247,7 @@ class Permute(Function):
         order_list = [int(i) for i in order]
         ctx.save_for_backward(order_list)
         return t._new(t._tensor.permute(*order_list))
-    
+
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, None]:
         order_list = ctx.saved_values
