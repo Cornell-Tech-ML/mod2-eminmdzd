@@ -95,20 +95,19 @@ class Tensor:
         self.f = backend
 
     def requires_grad_(self, x: bool) -> None:
+        """Set the tensor to require gradients."""
         self.history = History()
 
     def requires_grad(self) -> bool:
+        """Check if the tensor requires gradients."""
         return self.history is not None
 
     def to_numpy(self) -> npt.NDArray[np.float64]:
-        """Returns
-        Converted to numpy array
-
-        """
+        """Return the tensor as a numpy array."""
         return self.contiguous()._tensor._storage.reshape(self.shape)
 
     def _ensure_tensor(self, b: TensorLike) -> Tensor:
-        """Turns a python number into a tensor with the same backend."""
+        """Convert a Python number into a tensor."""
         if isinstance(b, (int, float)):
             c = Tensor.make([b], (1,), backend=self.backend)
         else:
@@ -117,33 +116,38 @@ class Tensor:
         return c
 
     def item(self) -> float:
-        """Convert a 1-element tensor to a float"""
+        """Convert a 1-element tensor to a float."""
         assert self.size == 1
         x: float = self._tensor._storage[0]
         return x
 
     def contiguous(self) -> Tensor:
-        """Return a contiguous tensor with the same data"""
+        """Return a contiguous tensor with the same data."""
         return Copy.apply(self)
 
     def __repr__(self) -> str:
+        """Return a string representation of the tensor."""
         return self._tensor.to_string()
 
     def __getitem__(self, key: Union[int, UserIndex]) -> float:
+        """Get an item from the tensor by index."""
         key2 = (key,) if isinstance(key, int) else key
         return self._tensor.get(key2)
 
     def __setitem__(self, key: Union[int, UserIndex], val: float) -> None:
+        """Set an item in the tensor by index."""
         key2 = (key,) if isinstance(key, int) else key
         self._tensor.set(key2, val)
 
     # Internal methods used for autodiff.
     def _type_(self, backend: TensorBackend) -> None:
+        """Set the backend of the tensor."""
         self.backend = backend
         if backend.cuda:  # pragma: no cover
             self._tensor.to_cuda_()
 
     def _new(self, tensor_data: TensorData) -> Tensor:
+        """Create a new tensor from existing data."""
         return Tensor(tensor_data, backend=self.backend)
 
     @staticmethod
@@ -153,47 +157,29 @@ class Tensor:
         strides: Optional[UserStrides] = None,
         backend: Optional[TensorBackend] = None,
     ) -> Tensor:
-        """Create a new tensor from data"""
+        """Create a new tensor from storage, shape, and strides."""
         return Tensor(TensorData(storage, shape, strides), backend=backend)
 
     def expand(self, other: Tensor) -> Tensor:
-        """Method used to allow for backprop over broadcasting.
-        This method is called when the output of `backward`
-        is a different size than the input of `forward`.
-
-
-        Args:
-        ----
-            other : backward tensor (must broadcast with self)
-
-        Returns:
-        -------
-            Expanded version of `other` with the right derivatives
-
-        """
-        # Case 1: Both the same shape.
+        """Expand the size of another tensor to match this tensor for backprop."""
         if self.shape == other.shape:
             return other
-
-        # Case 2: Backward is a smaller than self. Broadcast up.
         true_shape = TensorData.shape_broadcast(self.shape, other.shape)
         buf = self.zeros(true_shape)
         self.backend.id_map(other, buf)
         if self.shape == true_shape:
             return buf
-
-        # Case 3: Still different, reduce extra dims.
         out = buf
         orig_shape = [1] * (len(out.shape) - len(self.shape)) + list(self.shape)
         for dim, shape in enumerate(out.shape):
             if orig_shape[dim] == 1 and shape != 1:
                 out = self.backend.add_reduce(out, dim)
         assert out.size == self.size, f"{out.shape} {self.shape}"
-        # START CODE CHANGE (2021)
         return Tensor.make(out._tensor._storage, self.shape, backend=self.backend)
-        # END CODE CHANGE (2021)
 
     def zeros(self, shape: Optional[UserShape] = None) -> Tensor:
+        """Return a new tensor filled with zeros."""
+
         def zero(shape: UserShape) -> Tensor:
             return Tensor.make(
                 [0.0] * int(operators.prod(shape)), shape, backend=self.backend
@@ -207,24 +193,17 @@ class Tensor:
         return out
 
     def tuple(self) -> Tuple[Storage, Shape, Strides]:
-        """Get the tensor data info as a tuple."""
+        """Return the tensor's data as a tuple (storage, shape, strides)."""
         return self._tensor.tuple()
 
     def detach(self) -> Tensor:
-        """Detach from backprop"""
+        """Return a new tensor detached from the computation graph."""
         return Tensor(self._tensor, backend=self.backend)
 
     # Variable elements for backprop
 
     def accumulate_derivative(self, x: Any) -> None:
-        """Add `val` to the the derivative accumulated on this variable.
-        Should only be called during autodifferentiation on leaf variables.
-
-        Args:
-        ----
-            x : value to be accumulated
-
-        """
+        """Accumulate derivative (for leaf nodes in backprop)."""
         assert self.is_leaf(), "Only leaf variables can have derivatives."
         if self.grad is None:
             self.grad = Tensor.make(
@@ -235,18 +214,21 @@ class Tensor:
         self.grad += x
 
     def is_leaf(self) -> bool:
-        """True if this variable created by the user (no `last_fn`)"""
+        """Check if the tensor is a leaf node in the computation graph."""
         return self.history is not None and self.history.last_fn is None
 
     def is_constant(self) -> bool:
+        """Check if the tensor is a constant (no history)."""
         return self.history is None
 
     @property
     def parents(self) -> Iterable[Variable]:
+        """Return the parents of the tensor in the computation graph."""
         assert self.history is not None
         return self.history.inputs
 
     def chain_rule(self, d_output: Any) -> Iterable[Tuple[Variable, Any]]:
+        """Apply the chain rule to compute gradients."""
         h = self.history
         assert h is not None
         assert h.last_fn is not None
@@ -260,6 +242,7 @@ class Tensor:
         ]
 
     def backward(self, grad_output: Optional[Tensor] = None) -> None:
+        """Compute the gradients of the tensor with respect to its inputs."""
         if grad_output is None:
             assert self.shape == (1,), "Must provide grad_output if non-scalar"
             grad_output = Tensor.make([1.0], (1,), backend=self.backend)
