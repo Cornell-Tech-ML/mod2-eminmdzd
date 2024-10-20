@@ -89,4 +89,3 @@ if __name__ == "__main__":
     RATE = 0.5
     data = minitorch.datasets["Simple"](PTS)
     TensorTrain(HIDDEN).train(data, RATE)
-    
