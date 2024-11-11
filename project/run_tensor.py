@@ -30,11 +30,13 @@ class Network(minitorch.Module):
 class Linear(minitorch.Module):
     def __init__(self, in_size, out_size):
         super().__init__()
-        self.weights = self.add_parameter("weights", RParam(out_size, in_size, 1).value)
-        self.bias = self.add_parameter("bias", RParam(out_size).value)
+        self.weights = RParam(in_size, out_size)
+        self.bias = RParam(out_size)
+        self.out_size = out_size
 
-    def forward(self, inputs):
-        return (self.weights.value * inputs.permute(1,0)).sum(1).view(self.weights.value.shape[0],inputs.shape[0]).permute(1,0) + self.bias.value
+   def forward(self, x):
+    batch, in_size = x.shape
+    return (self.weights.value.view(1, in_size, self.out_size)* x.view(batch, in_size, 1)). sum(1).view(batch, self.out_size) + self.bias.value.view(self.out_size)
 
 
 
@@ -87,5 +89,5 @@ if __name__ == "__main__":
     PTS = 50
     HIDDEN = 2
     RATE = 0.5
-    data = minitorch.datasets["Simple"](PTS)
+    data = minitorch.datasets["XOR"](PTS)
     TensorTrain(HIDDEN).train(data, RATE)

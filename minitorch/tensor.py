@@ -274,7 +274,7 @@ class Tensor:
     @property
     def dims(self) -> int:
         """Returns the number of dimensions of the tensor."""
-        return len(self.shape)
+        return self._tensor.dims
 
     def __add__(self, other: TensorLike) -> Tensor:
         """Element-wise addition with broadcasting support."""
@@ -318,10 +318,9 @@ class Tensor:
         """Right-hand side multiplication to support scalar * tensor."""
         return self.__mul__(other)
 
-    def is_close(self, other: TensorLike) -> Tensor:
+    def is_close(self, other: Tensor) -> Tensor:
         """Element-wise closeness comparison within a tolerance."""
-        other_tensor = self._ensure_tensor(other)
-        return IsClose.apply(self, other_tensor)
+        return IsClose.apply(self, other)
 
     def sigmoid(self) -> Tensor:
         """Applies the sigmoid function element-wise."""
@@ -353,11 +352,10 @@ class Tensor:
         """
         if dim is None:
             # Sum over all elements
-            flattened = self.contiguous().view(int(operators.prod(self.shape)))
-            return Sum.apply(flattened, tensor([0]))
+            return Sum.apply(self.contiguous().view(self.size), self._ensure_tensor(0))
         else:
             # Sum over the specified dimension
-            return Sum.apply(self, tensor([dim]))
+            return Sum.apply(self, self._ensure_tensor(dim))
 
     def mean(self, dim: Optional[int] = None) -> Tensor:
         """Computes the mean over the specified dimension.
@@ -371,12 +369,10 @@ class Tensor:
             Tensor: Tensor with mean values.
 
         """
-        total = self.sum(dim=dim)
-        if dim is None:
-            count = operators.prod(self.shape)
+        if dim is not None:
+            return self.sum(dim) / self.shape[dim]
         else:
-            count = self.shape[dim]
-        return total / count
+            return self.sum() / self.size
 
     def permute(self, *order: int) -> Tensor:
         """Permutes the dimensions of the tensor according to the specified order.
@@ -422,11 +418,10 @@ class Tensor:
         """
         if dim is None:
             # Reduce over all elements
-            flattened = self.contiguous().view(int(operators.prod(self.shape)))
-            return All.apply(flattened, tensor([0]))
+            return All.apply(self.view(self.size), self._ensure_tensor(0))
         else:
             # Reduce over the specified dimension
-            return All.apply(self, tensor([dim]))
+            return All.apply(self, self._ensure_tensor(dim))
 
     def zero_grad_(self) -> None:
         """Sets the gradient of the tensor to None."""

@@ -253,25 +253,20 @@ class Permute(Function):
     @staticmethod
     def forward(ctx: Context, t: Tensor, order: Tensor) -> Tensor:
         """Forward pass for tensor permutation."""
-        order_list = [int(order[i]) for i in range(order.size)]
-        ctx.save_for_backward(order_list)
-        if len(order_list) == 0 or t.dims == 0:
-            return t
-        permuted_tensor = t._tensor.permute(*order_list)
-        return t._new(permuted_tensor)
+        ctx.save_for_backward(order)
+        return t._new(t._tensor.permute(*[int(order[i]) for i in range(order.size)]))
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, float]:
-        """Backward pass for tensor permutation."""
-        (order,) = ctx.saved_values
-        if len(order) == 0 or grad_output.dims == 0:
-            return grad_output, 0.0
-        inverse_order = [0] * len(order)
-        for i, p in enumerate(order):
-            inverse_order[p] = i
-        permuted_grad = grad_output._tensor.permute(*inverse_order)
-        grad_input = grad_output._new(permuted_grad)
-        return grad_input, 0.0
+        """Backward pass for tensor permutation"""
+        order: Tensor = ctx.saved_values[0]
+        order2: List[int] = [
+            a[0]
+            for a in sorted(
+                enumerate([order[i] for i in range(order.size)]), key=lambda a: a[1]
+            )
+        ]
+        return grad_output._new(grad_output._tensor.permute(*order2)), 0.0
 
 
 class View(Function):
